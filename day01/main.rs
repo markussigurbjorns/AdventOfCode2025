@@ -2,25 +2,72 @@
 #![no_main]
 
 use core::ffi::*;
+use core::ptr::*;
 use core::panic::PanicInfo;
 use libc::*;
+
 
 #[panic_handler]
 pub unsafe fn panic(_info: &PanicInfo) -> ! {
     abort()
 }
 
+pub unsafe fn read_file(path: *const c_char) -> *mut c_char {
+    
+    let file = fopen(path, c"rb".as_ptr());
+    
+    if file.is_null() {
+        printf(c"failed to open file\n".as_ptr());
+        return null_mut();
+    }
+    fseek(file, 0, 2);
+    let size = ftell(file);
+    fseek(file, 0, 0);
+
+    let buf = malloc((size as usize)+1) as *mut c_char;
+    if buf.is_null() {
+        printf(c"malloc failed\n".as_ptr());
+        fclose(file);
+        return core::ptr::null_mut();
+    }
+    
+    fread(buf, 1, size as usize, file);
+    
+    *buf.add(size as usize) = 0;
+
+    fclose(file);
+
+    buf
+}
+
 #[no_mangle]
-pub unsafe extern "C" fn main(_argc: i32, _argv: *mut *mut u8) -> i32 {
-    printf(c"hello, world\n".as_ptr());
+pub unsafe extern "C" fn main(argc: i32, argv: *mut *mut c_char) -> i32 {
+    
+    if argc == 1 {
+        printf(c"please provide input\n".as_ptr());
+        return 0;
+    }
+    let res = read_file(*argv.add(1));
     0
 }
 
-#[macro_use]
 mod libc {
     use core::ffi::*;
+
+    #[repr(C)]
+    pub struct FILE {
+        _private: [u8; 0],
+    }
+
+
     extern "C" {
         pub fn abort() -> !;
         pub fn printf(format: *const c_char, ...) -> c_int;
+        pub fn fopen(filename: *const c_char, mode: *const c_char) -> *mut FILE;
+        pub fn fclose(file: *mut FILE) -> c_int;
+        pub fn fseek(stream: *mut FILE, offset: c_long, whence: c_int) -> c_int;
+        pub fn fread(ptr: *mut c_void, size: usize, nobj: usize, stream: *mut FILE) -> usize;
+        pub fn ftell(stream: *mut FILE) -> c_long;
+        pub fn malloc(size: usize) -> *mut c_void;
     }
 }
