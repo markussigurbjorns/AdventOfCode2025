@@ -3,13 +3,14 @@
 
 use core::ffi::*;
 use core::ptr::*;
+use core::ptr;
 use core::panic::PanicInfo;
 use libc::*;
 
 
 #[panic_handler]
-pub unsafe fn panic(_info: &PanicInfo) -> ! {
-    abort()
+unsafe fn panic(_info: &PanicInfo) -> ! {
+    abort();
 }
 
 pub unsafe fn read_file(path: *const c_char) -> *mut c_char {
@@ -23,20 +24,22 @@ pub unsafe fn read_file(path: *const c_char) -> *mut c_char {
     fseek(file, 0, 2);
     let size = ftell(file);
     fseek(file, 0, 0);
+   
+    let size_usize = (size.saturating_add(1)) as usize;
 
-    let buf = malloc((size as usize)+1) as *mut c_char;
+    let buf = malloc(size_usize) as *mut c_char;
     if buf.is_null() {
         printf(c"malloc failed\n".as_ptr());
         fclose(file);
-        return core::ptr::null_mut();
+        return null_mut();
     }
     
-    fread(buf, 1, size as usize, file);
+    fread(buf as *mut c_void, 1, size as usize, file);
     
-    *buf.add(size as usize) = 0;
-
+    ptr::write(buf.add(size as usize), 0);
+    
     fclose(file);
-
+    
     buf
 }
 
@@ -47,7 +50,12 @@ pub unsafe extern "C" fn main(argc: i32, argv: *mut *mut c_char) -> i32 {
         printf(c"please provide input\n".as_ptr());
         return 0;
     }
-    let res = read_file(*argv.add(1));
+    let arg1 = ptr::read(argv.add(1));
+    let text = read_file(arg1);
+
+    if !text.is_null() {
+        printf(text);
+    }
     0
 }
 
