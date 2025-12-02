@@ -43,6 +43,33 @@ pub unsafe fn read_file(path: *const c_char) -> *mut c_char {
     buf
 }
 
+pub unsafe fn parse_number(mut p: *const c_char) -> (i32, *const c_char) {
+    let mut val: i32 = 0;
+
+    loop {
+        let ch = ptr::read(p);
+        if ch == b'\n' as i8 || ch == 0 { break; }
+        if ch < b'0' as i8 || ch > b'9' as i8 { break; }
+
+        let d = (ch.saturating_sub(b'0' as i8)) as i32;
+        val = val.wrapping_mul(10).wrapping_add(d);
+
+        p = p.add(1);
+    }
+
+    (val, p)
+}
+
+
+pub unsafe fn add_num(num:i32) -> i32 {
+
+    num+4_i32
+}
+
+pub unsafe fn process_part1(buf: *const c_char) -> i32 {
+    
+    add_num(5_i32)
+}
 
 #[no_mangle]
 pub unsafe extern "C" fn main(argc: i32, argv: *mut *mut c_char) -> i32 {
@@ -56,6 +83,7 @@ pub unsafe extern "C" fn main(argc: i32, argv: *mut *mut c_char) -> i32 {
 
     if !text.is_null() {
         // START HERE
+        process_part1(text);
     }
     0
 }
