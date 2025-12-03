@@ -94,28 +94,28 @@ pub unsafe fn process_part1(buf: *const c_char) -> u32 {
 }
 
 pub unsafe fn find_highest_n_digit_num(buf: *const c_char, n:u8) -> (u64, *const c_char) {
+    
     let mut p = buf;
-    let mut curr_digit = buf;
+    let mut current_digit = buf;
     let mut val: u64 = 0;
- 
-    for i in (0..n).rev() {
+    for i in (0..n).rev(){
+        p = current_digit;
         loop {
             let ch = *p;
             let peek = *p.add(i as usize);
-            if peek == b'\n' as i8 || ch == 0 {break;}
-            if ch >= *curr_digit {
-                let n = (ch - b'0' as i8) as i32;
-                printf(c"%d\n".as_ptr(), n);
-                curr_digit = p;
+            if peek == b'\n' as i8 {break;}
+            if ch > *current_digit {
+                current_digit = p;
             }
             p = p.add(1);
         }
-        p = curr_digit;
-        let d = (*curr_digit - b'0' as i8) as u64;
+        let d = (*current_digit - b'0' as i8) as u64;
         val = val * 10 + d;
+        current_digit = current_digit.add(1);
     }
 
-    (val, p)
+    (val, p.add(1))
+
 }
 
 
@@ -127,7 +127,6 @@ pub unsafe fn process_part2(buf: *const c_char) -> u64 {
         let (val, new_p) = find_highest_n_digit_num(p, 12_u8);
         sum += val;
         p = new_p;
-        p = p.add(1);
     }
     sum
 }
