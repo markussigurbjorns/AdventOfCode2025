@@ -43,56 +43,6 @@ pub unsafe fn read_file(path: *const c_char) -> *mut c_char {
     buf
 }
 
-
-pub unsafe fn find_highest_two_digit_num(buf: *const c_char) -> (u32, *const c_char) {
-    let mut p = buf;
-    let mut first_digit = buf;
-    let mut second_digit = buf;
-    let mut val: u32 = 0;
-    loop {
-        let ch = *p;
-        let peek = *p.add(1);
-        if peek == b'\n' as i8 {break;}
-        if ch > *first_digit {
-            first_digit = p;
-        }
-        p = p.add(1);
-    }
-
-    p = first_digit.add(1);
-    second_digit = first_digit.add(1);
-
-    loop {
-        let ch = *p;
-        if ch == b'\n' as i8 {break;}
-        if ch > *second_digit {
-            second_digit = p;
-        }
-        p = p.add(1);
-    }
-    
-    let fd = (*first_digit - b'0' as i8 ) as u32;
-    val = fd;
-    let sd = (*second_digit - b'0' as i8) as u32;
-    val = val * 10 + sd;
-
-    (val, p)
-}
-
-
-pub unsafe fn process_part1(buf: *const c_char) -> u32 {
-    let mut p = buf; 
-    let mut sum: u32 = 0;
-    while *p != 0 {
-   
-        let (val, new_p) = find_highest_two_digit_num(p);
-        sum += val;
-        p = new_p;
-        p = p.add(1);
-    }
-    sum
-}
-
 pub unsafe fn find_highest_n_digit_num(buf: *const c_char, n:u8) -> (u64, *const c_char) {
     
     let mut p = buf;
@@ -113,9 +63,20 @@ pub unsafe fn find_highest_n_digit_num(buf: *const c_char, n:u8) -> (u64, *const
         val = val * 10 + d;
         current_digit = current_digit.add(1);
     }
-
     (val, p.add(1))
+}
 
+
+pub unsafe fn process_part1(buf: *const c_char) -> u64 {
+    let mut p = buf; 
+    let mut sum: u64 = 0;
+    while *p != 0 {
+   
+        let (val, new_p) = find_highest_n_digit_num(p, 2_u8);
+        sum += val;
+        p = new_p;
+    }
+    sum
 }
 
 
@@ -143,7 +104,7 @@ pub unsafe extern "C" fn main(argc: i32, argv: *mut *mut c_char) -> i32 {
 
     if !text.is_null() {
         let res1 = process_part1(text);
-        printf(c"%lu\n".as_ptr(), res1);
+        printf(c"%llu\n".as_ptr(), res1);
         let res2 = process_part2(text);
         printf(c"%llu\n".as_ptr(), res2);
 
