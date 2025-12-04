@@ -49,49 +49,82 @@ pub unsafe fn read_file(path: *const c_char) -> *mut c_char {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct FloorPlan {
-    pub length: u32,
-    pub height: u32,
-    pub rolls: Array<u32>,
+    pub length: i32,
+    pub height: i32,
+    pub slots: Array<i8>,
 }
 
 pub unsafe fn new_floor_plan() -> FloorPlan {
     FloorPlan {
         length:0,
         height:0,
-        rolls: zeroed()
+        slots: zeroed()
     }
 }
 
-pub unsafe fn process_part1(buf: *const c_char) -> u32 {
+pub unsafe fn idx(r:i32, c:i32, h:i32) -> i32 {
+    r*h+c
+}
+
+pub unsafe fn process_part1(buf: *const c_char) -> i32 {
     let mut p = buf;
-    let mut rolls: u32 = 0;
+    let mut rolls: i32 = 0;
     let mut fp: FloorPlan = new_floor_plan();
-    let mut l: u32 = 0;
-    let mut h: u32 = 0;
-    let mut i: u32 = 0;
+    let mut l: i32 = 0;
+    let mut h: i32 = 0;
     while *p != 0 {
         if *p == b'\n' as i8 {
             fp.length = l;
             h += 1;
+        } else {
+            da_append(&mut fp.slots, *p);
         }
         if fp.length < 1 {
             l +=1;
         }
-        if *p == b'@' as i8 {
-            da_append(&mut fp.rolls, i);
-        }
-        i +=1;
         p = p.add(1);
     }
     fp.height = h;
 
-    printf(c"length is %lu\n".as_ptr(), l);
-    printf(c"height is %lu\n".as_ptr(), h);
+    let deltas = [
+        (-1, -1),
+        (-1, 0),
+        (-1, 1),
+        (0, -1),
+        (0, 1),
+        (1, -1),
+        (1, 0),
+        (1, 1),
+    ];
 
-    for r in 0..fp.rolls.count {
-        let ro = fp.rolls.items.add(r);
+    for r in 0..fp.height {
+        for c in 0..fp.length {
+            let a = idx(r,c,fp.height);
+            let slot_a = fp.slots.items.add(a as usize);
+            if *slot_a != b'@' as i8 {continue}
+            let mut count = 0;
+            let mut pick_up = true;
+            for (dr,dc) in deltas {
+                let nr = r + dr;
+                let nc = c + dc;
+                if nr < 0 || nr >= fp.height || nc < 0 || nc >= fp.length {
+                    continue;
+                }
+                let b = idx(nr, nc, fp.height);
+                let slot_b = fp.slots.items.add(b as usize);
 
-        printf(c"roll has index %lu\n".as_ptr(), *ro);
+                if *slot_a == *slot_b {
+                    count +=1;
+                    if count == 4 {
+                        pick_up = false;
+                        break;
+                    }
+                }
+                
+            }
+            if pick_up {rolls+=1;}
+            
+        }
     }
     rolls
 }
@@ -109,7 +142,7 @@ pub unsafe extern "C" fn main(argc: i32, argv: *mut *mut c_char) -> i32 {
 
     if !text.is_null() {
         let res1 = process_part1(text);
-        printf(c"%lu\n".as_ptr(), res1);
+        printf(c"%d\n".as_ptr(), res1);
 
     }
     0
@@ -134,7 +167,6 @@ pub mod libc {
         pub fn ftell(stream: *mut FILE) -> c_long;
         pub fn malloc(size: usize) -> *mut c_void;
         pub fn free(p: *mut c_void);
-       // pub fn realloc(p: *mut c_void, size: usize) -> *mut c_void;
     }
 
     pub unsafe fn realloc_items<T>(ptr: *mut T, count: usize) -> *mut T {
