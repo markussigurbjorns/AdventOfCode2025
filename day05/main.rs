@@ -44,15 +44,15 @@ pub unsafe fn read_file(path: *const c_char) -> *mut c_char {
     buf
 }
 
-pub unsafe fn parse_number(mut p: *const c_char) -> (u32, *const c_char) {
-    let mut val: u32 = 0;
+pub unsafe fn parse_number(mut p: *const c_char) -> (u64, *const c_char) {
+    let mut val: u64 = 0;
 
     loop {
         let ch = *p;
         if ch == b'-' as i8 || ch == 0  { break; }
         if ch < b'0' as i8 || ch > b'9' as i8 { break; }
 
-        let d = (ch - b'0' as i8) as u32;
+        let d = (ch - b'0' as i8) as u64;
         val = val * 10 + d;
 
         p = p.add(1);
@@ -60,7 +60,7 @@ pub unsafe fn parse_number(mut p: *const c_char) -> (u32, *const c_char) {
     (val, p)
 }
 
-pub unsafe fn partition(arr: *mut Array<(u32,u32)>, lo: usize, hi:usize) -> usize {
+pub unsafe fn partition(arr: *mut Array<(u64,u64)>, lo: usize, hi:usize) -> usize {
     let pivot = (*(*arr).items.add(hi)).0;
 
     let mut idx:usize = lo;
@@ -79,54 +79,110 @@ pub unsafe fn partition(arr: *mut Array<(u32,u32)>, lo: usize, hi:usize) -> usiz
     idx
 }
 
-pub unsafe fn sort(arr: *mut Array<(u32,u32)>, lo: usize, hi:usize) {
+pub unsafe fn sort(arr: *mut Array<(u64,u64)>, lo: usize, hi:usize) {
     if lo < hi {
         let idx = partition(arr, lo, hi);
-        sort(arr, lo, idx-1);
+        if idx > 0 {
+            sort(arr, lo, idx-1);
+        }
         sort(arr, idx+1, hi);
     }
 }
 
-pub unsafe fn add_interval(lower: u32, higher: u32, arr: *mut Array<(u32,u32)> ) {
-    if (*arr).count == 0 {
-        da_append(arr, (lower, higher));
-        return;
-    }
-    let mut l = 0;
-    let mut h = 0;
-    for i in 0..(*arr).count {
-        let curr = *(*arr).items.add(i);
-        if higher >= curr.1 {
-            
+pub unsafe fn merge_overlap(arr: *mut Array<(u64,u64)> ) -> Array<(u64,u64)> {
+
+    let mut res: Array<(u64,u64)> = zeroed();
+    let size = (*arr).count;
+    
+    for i in 0..size {
+        let start = (*(*arr).items.add(i)).0;
+        let mut end = (*(*arr).items.add(i)).1;
+
+        if res.count != 0 && (*res.items.add(res.count-1)).1 >= end {
+            continue;
         }
+        for j in i..size {
+            if (*(*arr).items.add(j)).0 <= end {
+                if (*(*arr).items.add(j)).1 > end {
+                    end = (*(*arr).items.add(j)).1;
+                }
+            }
+        }
+        da_append(&mut res, (start, end));
     }
+
+    res
 
 }
 
-pub unsafe fn process_part1(buf: *const c_char) -> u32 {
+pub unsafe fn process_part1(buf: *const c_char) -> u64 {
     let mut p = buf;
-    let mut fresh: u32 = 0;
-    let mut interval_array: Array<(u32,u32)> = zeroed();
-    let mut len:usize = 0;
+    let mut fresh: u64 = 0;
+    let mut array: Array<(u64,u64)> = zeroed();
+    let mut interval_array: Array<(u64,u64)> = zeroed();
+    let mut pre_process:bool = true;
     while *p != 0 {
+        if pre_process {
+            let (val1, new_p) = parse_number(p);
+            let (val2, new_new_p) = parse_number(new_p.add(1));
 
-        let (val1, new_p) = parse_number(p);
-        let (val2, new_new_p) = parse_number(new_p.add(1));
+            da_append(&mut array, (val1, val2));
+            
+            p = new_new_p;
+            p = p.add(1);
+            if *p == '\n' as i8 {
+                sort(&mut array, 0_usize, array.count-1);
+                interval_array = merge_overlap(&mut array);
+                pre_process = false;
+                p = p.add(1);
+            }
+        } else { 
+            let (val, new_p) = parse_number(p);
+            for d in 0..interval_array.count {
+                let curr = *interval_array.items.add(d);
+                if val >= curr.0 && val <= curr.1 {
+                    fresh += 1;
+                }
+            }
 
-        printf(c"values are: %lu and %lu\n".as_ptr(), val1, val2);
-        da_append(&mut interval_array, (val1, val2));
-        
-        len += 1;
-        p = new_new_p;
-        p = p.add(1);
+            p = new_p;
+            p = p.add(1);
+        }
     }
-    sort(&mut interval_array, 0_usize, len-1);
+    fresh
+}
 
+
+pub unsafe fn process_part2(buf: *const c_char) -> u64 {
+    let mut p = buf;
+    let mut fresh: u64 = 0;
+    let mut array: Array<(u64,u64)> = zeroed();
+    let mut interval_array: Array<(u64,u64)> = zeroed();
+    let mut pre_process:bool = true;
+    while *p != 0 {
+        if pre_process {
+            let (val1, new_p) = parse_number(p);
+            let (val2, new_new_p) = parse_number(new_p.add(1));
+
+            da_append(&mut array, (val1, val2));
+            
+            p = new_new_p;
+            p = p.add(1);
+            if *p == '\n' as i8 {
+                sort(&mut array, 0_usize, array.count-1);
+                interval_array = merge_overlap(&mut array);
+                pre_process = false;
+                p = p.add(1);
+            }
+        } else { 
+            p = p.add(1);
+        }
+    }
     for d in 0..interval_array.count {
         let curr = *interval_array.items.add(d);
-        printf(c"values are: %lu and %lu\n".as_ptr(), curr.0 as u32, curr.1 as u32);
+        fresh += (curr.1 - curr.0)+1;
     }
-
+    
     fresh
 }
 
@@ -142,9 +198,9 @@ pub unsafe extern "C" fn main(argc: i32, argv: *mut *mut c_char) -> i32 {
 
     if !text.is_null() {
         let res1 = process_part1(text);
-        printf(c"%d\n".as_ptr(), res1);
-        //let res2 = process_part2(text);
-        //printf(c"%d\n".as_ptr(), res2);
+        printf(c"%llu\n".as_ptr(), res1);
+        let res2 = process_part2(text);
+        printf(c"%llu\n".as_ptr(), res2);
     }
     0
 }
